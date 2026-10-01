@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Werewolf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700&family=Grenze+Gotisch:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#DDE9F3; --panel:#EEF4F9; --ink:#14263A; --muted:#4B6076; --line:#9FB6CB;
+  --accent:#B4232C; --accent-ink:#FFFFFF; --sun:#F0C15A; --sun-ink:#3A2A00;
+  --moon:#2B3768; --moon-ink:#F6E7A8; --danger:#B4232C;
+  --display:'Grenze Gotisch','Palatino Linotype','Book Antiqua',Georgia,serif;
+  --body:'Alegreya Sans','Gill Sans','Trebuchet MS',system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121A33; --panel:#1B2547; --ink:#E9E7F7; --muted:#A9B0D0; --line:#3A4778;
+    --accent:#EBC96B; --accent-ink:#1A1F3A; --danger:#FF9A90;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121A33; --panel:#1B2547; --ink:#E9E7F7; --muted:#A9B0D0; --line:#3A4778;
+  --accent:#EBC96B; --accent-ink:#1A1F3A; --danger:#FF9A90;
+}
+/* In-game the clock decides the theme: it overrides the viewer's setting */
+:root[data-phase="day"]{
+  --bg:#DDE9F3; --panel:#EEF4F9; --ink:#14263A; --muted:#4B6076; --line:#9FB6CB;
+  --accent:#B4232C; --accent-ink:#FFFFFF; --danger:#B4232C;
+}
+:root[data-phase="night"]{
+  --bg:#121A33; --panel:#1B2547; --ink:#E9E7F7; --muted:#A9B0D0; --line:#3A4778;
+  --accent:#EBC96B; --accent-ink:#1A1F3A; --danger:#FF9A90;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 var(--body);transition:background-color .8s,color .8s}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding:22px 18px 56px}
+h1,h2,h3{margin:0;font-weight:800}
+.brand{font:800 clamp(3rem,16vw,4.6rem)/0.95 var(--display);letter-spacing:.005em;margin:18px 0 12px}
+.brand-sm{font:800 1.5rem/1 var(--display)}
+.lede{font-size:1.15rem;color:var(--muted);margin:0 0 26px;max-width:34ch}
+.muted{color:var(--muted)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}
+.chip{display:inline-block;padding:.15rem .7rem;border:1.5px solid var(--line);border-radius:999px;font-weight:700;font-size:.95rem;letter-spacing:.06em}
+
+.field{margin:0 0 14px}
+.field label{display:block;font-weight:700;font-size:.95rem;margin-bottom:5px}
+.field input,.field select{width:100%;padding:.7rem .8rem;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);min-height:46px}
+.code-input{font:800 1.8rem/1 var(--display);letter-spacing:.35em;text-transform:uppercase;text-align:center}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:46px;padding:.6rem 1.15rem;border:1.5px solid var(--ink);border-radius:8px;background:transparent;font-weight:700;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{min-height:36px;padding:.25rem .8rem;font-size:.95rem}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.or{margin:26px 0 14px;color:var(--muted);display:flex;align-items:center;gap:12px}
+.or::before,.or::after{content:"";flex:1;border-top:1.5px solid var(--line)}
+.err{margin:0 0 16px;padding:.7rem .9rem;border-left:4px solid var(--danger);background:var(--panel)}
+.notice{margin:0 0 16px;padding:.7rem .9rem;border-left:4px solid var(--line);background:var(--panel)}
+
+.phase{font:800 clamp(2.4rem,12vw,3.4rem)/1 var(--display)}
+.sub{margin:.35rem 0 0;font-size:1.15rem;font-weight:500}
+.count{margin:.15rem 0 0;color:var(--muted);font-variant-numeric:tabular-nums}
+.desc{margin:.8rem 0 0;max-width:40ch}
+
+.clock{display:grid;gap:3px;margin:20px 0 4px}
+.seg{position:relative;height:46px;border-radius:6px;overflow:hidden;display:grid;place-items:center;font-size:1.15rem;background:var(--sun);color:var(--sun-ink)}
+.seg.night{background:var(--moon);color:var(--moon-ink)}
+.seg.past{opacity:.38}
+.seg.now{outline:2.5px solid var(--ink);outline-offset:2px}
+.seg .fill{position:absolute;left:0;bottom:0;height:5px;background:currentColor;opacity:.75}
+.ticks{display:grid;gap:3px;font-size:.7rem;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.ticks span{white-space:nowrap;overflow:hidden}
+
+section.block{margin-top:30px;padding-top:20px;border-top:1.5px solid var(--line)}
+section.block > h3{font:800 1.7rem/1.1 var(--display);margin-bottom:12px}
+.panel{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:16px;margin-top:14px}
+.panel h4{margin:0 0 4px;font-size:1.1rem}
+.panel p{margin:.2rem 0 .8rem}
+
+.rolebox{display:flex;gap:18px;align-items:flex-start}
+.scene{perspective:900px;flex:none}
+.card{position:relative;display:block;width:132px;height:184px;padding:0;border:0;background:none;cursor:pointer;transform-style:preserve-3d;transition:transform .6s}
+.card.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;padding:10px;border:2px solid var(--ink);border-radius:12px;backface-visibility:hidden;-webkit-backface-visibility:hidden;text-align:center}
+.face.back{background-color:var(--ink);background-image:repeating-linear-gradient(45deg,transparent 0 7px,var(--bg) 7px 8px);color:var(--bg)}
+.face.back .q{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--bg);color:var(--ink);font:800 2rem/1 var(--display)}
+.face.back .hint{padding:.05rem .5rem;border-radius:6px;background:var(--bg);color:var(--ink);font-weight:700;font-size:.9rem}
+.face.front{transform:rotateY(180deg);background:var(--panel)}
+.face.front .ico{font-size:3.2rem;line-height:1}
+.face.front .rname{font:800 1.5rem/1.05 var(--display)}
+.roletext{min-width:0}
+.roletext p{margin:0 0 .6rem}
+.roledesc{visibility:hidden}
+.roledesc.shown{visibility:visible}
+
+.picks{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pick{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:46px;padding:.55rem .8rem;border:1.5px solid var(--line);border-radius:8px;background:transparent;text-align:left;font-weight:500;cursor:pointer}
+.pick[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.badge{min-width:1.6rem;padding:.02rem .45rem;border-radius:999px;background:var(--ink);color:var(--bg);font-size:.85rem;font-weight:700;text-align:center}
+.pick[aria-pressed="true"] .badge{background:var(--accent-ink);color:var(--accent)}
+.confirm{margin-top:12px;padding-top:12px;border-top:1.5px dashed var(--line)}
+
+.plist{list-style:none;margin:0;padding:0}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:.55rem 0;border-top:1px solid var(--line)}
+.prow:first-child{border-top:0}
+.prow.dead .pname{text-decoration:line-through;color:var(--muted)}
+.tag{font-size:.9rem;font-weight:700;white-space:nowrap}
+.tag.host{color:var(--muted);font-weight:500}
+
+.log{list-style:none;margin:0;padding:0}
+.log li{padding:.65rem 0;border-top:1px solid var(--line)}
+.log li:first-child{border-top:0}
+.log b{display:block;font-size:.9rem;color:var(--muted);font-weight:700}
+
+.banner{padding:18px;border-radius:10px;background:var(--accent);color:var(--accent-ink)}
+.banner h2{font:800 2.3rem/1 var(--display)}
+.banner p{margin:.5rem 0 0}
+
+.big-code{font:800 clamp(3.2rem,20vw,5rem)/1 var(--display);letter-spacing:.18em;margin:.2rem 0 .4rem}
+details{margin-top:30px;border-top:1.5px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:700}
+details ul{padding-left:1.2rem;margin:.7rem 0 0}
+details li{margin:.35rem 0}
+footer{margin-top:34px}
+
+@media (prefers-reduced-motion: reduce){
+  .card{transition:none}
+  body{transition:none}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+
+// ---------------------------------------------------------------- game logic
+// <logic>
+const PHASES = 9;
+const MIN_PLAYERS = 4;
+const ROLE = {
+  wolf:      { name:'Werewolf',    icon:'🐺', team:'wolves',  blurb:'Each night, vote with the other werewolves on a victim. By day, blend in with the village.' },
+  villager:  { name:'Villager',    icon:'🧑‍🌾', team:'village', blurb:'No special power. Your voice and your vote are how the village finds the wolves.' },
+  seer:      { name:'Clairvoyant', icon:'🔮', team:'village', blurb:'Each night, look at one player and learn their exact role.' },
+  protector: { name:'Protector',   icon:'🛡️', team:'village', blurb:'Once per game, shield one player. Werewolves cannot kill them until the game ends.' },
+  sheriff:   { name:'Sheriff',     icon:'⭐', team:'village', blurb:'You have one bullet. Shoot a werewolf and they die. Shoot anyone else and you both die.' }
+};
+const isNight = i => i % 2 === 1;
+
+function roleCounts(n){
+  const w = Math.max(1, Math.round(n * 0.2));
+  const s = Math.max(1, Math.round(n * 0.1));
+  const order = [];
+  for (let i = 0; i < w; i++) order.push('wolf');
+  for (const r of ['seer', 'sheriff', 'protector']) for (let i = 0; i < s; i++) order.push(r);
+  const specials = order.slice(0, Math.max(0, n - 1)); // always keep at least one villager
+  const c = { wolf:0, seer:0, sheriff:0, protector:0, villager:0 };
+  specials.forEach(r => c[r]++);
+  c.villager = n - specials.length;
+  return c;
+}
+
+function assignRoles(ids, rnd = Math.random){
+  const c = roleCounts(ids.length);
+  const pool = [];
+  for (const [r, k] of Object.entries(c)) for (let i = 0; i < k; i++) pool.push(r);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const out = {};
+  ids.forEach((id, i) => { out[id] = pool[i]; });
+  return out;
+}
+
+// Replays every recorded action, in time order, against the phase schedule.
+// Every phone runs this on the same data, so everyone sees the same result.
+function derive(game, acts, now){
+  const roles = game.roles, L = game.phaseMs, N = game.phases, start = game.start;
+  const alive = new Set(Object.keys(roles));
+  const dead = {};
+  const pub = [];
+  const saved = [];
+  const votes = {}, wolfVotes = {}, looks = {};
+  let protect = null, shot = null, winner = null, why = '';
+  const phaseOf = t => Math.floor((t - start) / L);
+
+  const kill = (id, phase, cause) => { alive.delete(id); dead[id] = { phase, cause }; };
+  const checkWin = phase => {
+    if (winner) return;
+    let w = 0;
+    for (const id of alive) if (roles[id] === 'wolf') w++;
+    const others = alive.size - w;
+    if (w === 0) { winner = 'village'; why = 'wolves-dead'; }
+    else if (w >= others) { winner = 'wolves'; why = 'parity'; }
+    if (winner) pub.push({ type:'end', phase, winner, why });
+  };
+
+  const evs = [];
+  for (const a of acts) {
+    if (a.at < start || a.at > now) continue;
+    if (phaseOf(a.at) >= N) continue;
+    evs.push({ t:a.at, k:'a', a });
+  }
+  for (let i = 0; i < N; i++) {
+    const end = start + (i + 1) * L;
+    if (end <= now) evs.push({ t:end, k:'e', i });
+  }
+  evs.sort((x, y) => (x.t - y.t) || ((x.k === 'e' ? -1 : 1) - (y.k === 'e' ? -1 : 1)));
+
+  const applyAction = a => {
+    const p = phaseOf(a.at), r = roles[a.actor];
+    if (!r || !alive.has(a.actor)) return;
+    switch (a.type) {
+      case 'vote': {
+        if (isNight(p)) return;
+        if (a.target == null) { if (votes[p]) delete votes[p][a.actor]; return; }
+        if (!alive.has(a.target) || a.target === a.actor) return;
+        (votes[p] = votes[p] || {})[a.actor] = a.target;
+        return;
+      }
+      case 'wolf': {
+        if (!isNight(p) || r !== 'wolf') return;
+        if (a.target == null) { if (wolfVotes[p]) delete wolfVotes[p][a.actor]; return; }
+        if (!alive.has(a.target) || roles[a.target] === 'wolf') return;
+        (wolfVotes[p] = wolfVotes[p] || {})[a.actor] = { target:a.target, at:a.at };
+        return;
+      }
+      case 'look': {
+        if (!isNight(p) || r !== 'seer' || looks[p]) return;
+        if (!alive.has(a.target) || a.target === a.actor) return;
+        looks[p] = { actor:a.actor, target:a.target };
+        return;
+      }
+      case 'protect': {
+        if (r !== 'protector' || protect) return;
+        if (!alive.has(a.target)) return;
+        protect = { actor:a.actor, target:a.target, at:a.at };
+        return;
+      }
+      case 'shoot': {
+        if (r !== 'sheriff' || shot) return;
+        if (!alive.has(a.target) || a.target === a.actor) return;
+        shot = { actor:a.actor, target:a.target, at:a.at };
+        if (roles[a.target] === 'wolf') {
+          kill(a.target, p, 'sheriff');
+          pub.push({ type:'sheriff_hit', phase:p, actor:a.actor, target:a.target });
+        } else {
+          kill(a.target, p, 'sheriff');
+          kill(a.actor, p, 'guilt');
+          pub.push({ type:'sheriff_miss', phase:p, actor:a.actor, target:a.target });
+        }
+        checkWin(p);
+        return;
+      }
+    }
+  };
+
+  const applyEnd = i => {
+    if (isNight(i)) {
+      const count = {}, first = {};
+      for (const [actor, v] of Object.entries(wolfVotes[i] || {})) {
+        if (!alive.has(actor) || !alive.has(v.target)) continue;
+        count[v.target] = (count[v.target] || 0) + 1;
+        first[v.target] = Math.min(first[v.target] ?? Infinity, v.at);
+      }
+      let best = null;
+      for (const t of Object.keys(count)) {
+        if (best === null || count[t] > count[best] || (count[t] === count[best] && first[t] < first[best])) best = t;
+      }
+      if (best === null) pub.push({ type:'night_quiet', phase:i });
+      else if (protect && protect.target === best) { pub.push({ type:'night_quiet', phase:i }); saved.push({ phase:i, target:best }); }
+      else { kill(best, i, 'wolves'); pub.push({ type:'night_kill', phase:i, target:best }); }
+    } else {
+      const count = {};
+      for (const [actor, t] of Object.entries(votes[i] || {})) {
+        if (!alive.has(actor) || !alive.has(t)) continue;
+        count[t] = (count[t] || 0) + 1;
+      }
+      const keys = Object.keys(count);
+      if (!keys.length) pub.push({ type:'vote_none', phase:i });
+      else {
+        const top = Math.max(...keys.map(k => count[k]));
+        const tied = keys.filter(k => count[k] === top);
+        if (tied.length > 1) pub.push({ type:'vote_tie', phase:i });
+        else { kill(tied[0], i, 'vote'); pub.push({ type:'vote_out', phase:i, target:tied[0], votes:top }); }
+      }
+    }
+    checkWin(i);
+    if (i === N - 1 && !winner) {
+      winner = 'wolves'; why = 'time';
+      pub.push({ type:'end', phase:i, winner, why });
+    }
+  };
+
+  for (const ev of evs) {
+    if (winner) break;
+    if (ev.k === 'a') applyAction(ev.a); else applyEnd(ev.i);
+  }
+
+  const over = !!winner || now >= start + N * L;
+  const phase = over ? N : (now < start ? -1 : phaseOf(now));
+  return { alive, dead, pub, saved, votes, wolfVotes, looks, protect, shot, winner, why, over, phase };
+}
+// </logic>
+
+// ---------------------------------------------------------------- helpers
+const $app = document.getElementById('app');
+const pad = n => String(n).padStart(2, '0');
+function fmt(t){ const d = new Date(t), m = d.getMinutes(); return d.getHours() + 'h' + (m ? pad(m) : ''); }
+function dur(ms){
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  return h ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`;
+}
+const phaseLabel = i => isNight(i) ? `Night ${(i - 1) / 2 + 1}` : `Day ${i / 2 + 1}`;
+const secureRnd = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
+function genCode(){
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = ''; for (let i = 0; i < 4; i++) s += A[Math.floor(secureRnd() * A.length)];
+  return s;
+}
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'value' || k === 'checked' || k === 'disabled') el[k] = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) {
+    if (c == null || c === false) continue;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+
+// ---------------------------------------------------------------- state
+let db = null, uid = null, canWrite = null, booted = false;
+let code = null, game = undefined, players = {}, actions = [], unsubs = [];
+let D = null, lastRaw = -2, renderQueued = false;
+const ui = { name:'', join:'', err:'', busy:false, revealUntil:0, armed:null, startNow:false, hour:8, mins:60 };
+try { ui.name = localStorage.getItem('ww_name') || ''; } catch (e) {}
+
+const nameOf = id => (players[id] && players[id].name) || 'Someone';
+const roleOf = id => ROLE[game.roles[id]];
+const rawPhase = now => now < game.start ? -1 : (now >= game.start + game.phases * game.phaseMs ? game.phases : Math.floor((now - game.start) / game.phaseMs));
+
+function explain(e){
+  const c = e && e.code;
+  if (c === 'invalid_argument') return 'That request was not valid. Check the game code and try again.';
+  if (c === 'forbidden') return "You can't do that in this game.";
+  if (c === 'resource_exhausted') return 'Too many taps in a row. Wait a moment and try again.';
+  if (c === 'quota_exceeded') return "This app's storage is full.";
+  if (c === 'revoked') return 'Your access to this page changed.';
+  return 'Something went wrong. Try again.';
+}
+
+// ---------------------------------------------------------------- server connection
+// Same small API the game was written against (doc / collection / onSnapshot),
+// backed by server.js: writes go over fetch, live updates arrive over SSE.
+function getUid(){
+  let id = null; try { id = localStorage.getItem('ww_uid'); } catch (e) {}
+  if (!id) {
+    id = Array.from(crypto.getRandomValues(new Uint8Array(9)), b => b.toString(16).padStart(2, '0')).join('');
+    try { localStorage.setItem('ww_uid', id); } catch (e) {}
+  }
+  return id;
+}
+function makeDb(){
+  const call = async (op, path, data) => {
+    const r = await fetch('/api', { method:'POST', headers:{ 'Content-Type':'application/json', 'X-Uid':uid }, body:JSON.stringify({ op, path, data }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw { code:j.code || 'error' };
+    return j;
+  };
+  const snap = (id, data) => ({ id, exists:data !== undefined, data:() => data });
+  const rooms = {};
+  const watch = (path, fn) => {
+    const c = path.split('/')[1];
+    let r = rooms[c];
+    if (!r) {
+      r = rooms[c] = { fns:new Set(), state:null };
+      r.es = new EventSource('/api/stream?code=' + c);
+      r.es.onmessage = e => { r.state = JSON.parse(e.data); r.fns.forEach(f => f(r.state)); };
+    }
+    r.fns.add(fn); if (r.state) fn(r.state);
+    return () => { r.fns.delete(fn); if (!r.fns.size) { r.es.close(); delete rooms[c]; } };
+  };
+  const col = (path, field) => ({
+    add: data => call('add', path, data),
+    orderBy: f => col(path, f),
+    onSnapshot: ok => watch(path, st => {
+      const docs = Object.keys(st).filter(k => k.startsWith(path + '/')).map(k => snap(k.slice(path.length + 1), st[k]));
+      if (field) docs.sort((a, b) => (a.data()[field] - b.data()[field]) || (a.id < b.id ? -1 : 1));
+      ok({ docs });
+    })
+  });
+  return {
+    doc: path => ({
+      get: async () => { const j = await call('get', path); return snap(path.split('/').pop(), j.exists ? j.data : undefined); },
+      set: data => call('set', path, data),
+      update: data => call('update', path, data),
+      delete: () => call('delete', path),
+      onSnapshot: ok => watch(path, st => ok(snap(path.split('/').pop(), st[path])))
+    }),
+    collection: path => col(path)
+  };
+}
+
+// ---------------------------------------------------------------- data
+async function boot(){
+  render();
+  uid = getUid(); db = makeDb(); canWrite = true;
+  booted = true;
+  let saved = null; try { saved = localStorage.getItem('ww_code'); } catch (e) {}
+  if (db && uid && saved) enter(saved);
+  render();
+}
+
+function stop(){ unsubs.forEach(u => { try { u(); } catch (e) {} }); unsubs = []; }
+function enter(c){
+  stop(); code = c; game = undefined; players = {}; actions = []; ui.armed = null;
+  try { localStorage.setItem('ww_code', c); } catch (e) {}
+  const base = `games/${c}`;
+  const onErr = e => { ui.err = explain(e); render(); };
+  unsubs.push(db.doc(base).onSnapshot(s => {
+    game = s.exists ? s.data() : null;
+    if (game === null) { ui.err = 'That game no longer exists.'; leave(); return; }
+    render();
+  }, onErr));
+  unsubs.push(db.collection(`${base}/players`).onSnapshot(s => {
+    const p = {}; s.docs.forEach(d => { p[d.id] = d.data(); }); players = p; render();
+  }, onErr));
+  unsubs.push(db.collection(`${base}/actions`).orderBy('at').onSnapshot(s => {
+    actions = s.docs.map(d => ({ id:d.id, ...d.data() })); render();
+  }, onErr));
+}
+function leave(){
+  stop(); code = null; game = undefined; players = {}; actions = []; D = null;
+  try { localStorage.removeItem('ww_code'); } catch (e) {}
+  render();
+}
+
+function checkName(){
+  const n = ui.name.trim();
+  if (!n) { ui.err = 'Enter your name first.'; render(); return null; }
+  try { localStorage.setItem('ww_name', n); } catch (e) {}
+  return n;
+}
+async function createGame(){
+  const name = checkName(); if (!name || ui.busy) return;
+  ui.busy = true; ui.err = ''; render();
+  try {
+    let c, tries = 0;
+    do { c = genCode(); const s = await db.doc(`games/${c}`).get(); if (!s.exists) break; } while (++tries < 6);
+    await db.doc(`games/${c}`).set({ hostId:uid, status:'lobby', createdAt:Date.now() });
+    await db.doc(`games/${c}/players/${uid}`).set({ name, at:Date.now() });
+    enter(c);
+  } catch (e) { ui.err = explain(e); }
+  ui.busy = false; render();
+}
+async function joinGame(){
+  const name = checkName(); if (!name || ui.busy) return;
+  const c = ui.join.trim().toUpperCase();
+  if (c.length !== 4) { ui.err = 'Enter the 4-character game code.'; render(); return; }
+  ui.busy = true; ui.err = ''; render();
+  try {
+    const s = await db.doc(`games/${c}`).get();
+    if (!s.exists) ui.err = 'No game found with that code.';
+    else {
+      const g = s.data();
+      const member = g.roles && g.roles[uid];
+      if (g.status === 'started' && !member) ui.err = 'That game has already started.';
+      else {
+        if (!member) await db.doc(`games/${c}/players/${uid}`).set({ name, at:Date.now() });
+        enter(c);
+      }
+    }
+  } catch (e) { ui.err = explain(e); }
+  ui.busy = false; render();
+}
+async function guarded(fn){
+  if (ui.busy) return;
+  ui.busy = true; ui.err = '';
+  try { await fn(); } catch (e) { ui.err = explain(e); }
+  ui.busy = false; render();
+}
+const addBot = () => guarded(async () => {
+  const n = Object.values(players).filter(p => p.bot).length + 1;
+  const id = 'bot_' + Math.random().toString(36).slice(2, 8);
+  await db.doc(`games/${code}/players/${id}`).set({ name:'Bot ' + n, bot:true, at:Date.now() });
+});
+const removePlayer = id => guarded(async () => { await db.doc(`games/${code}/players/${id}`).delete(); });
+const leaveLobby = async () => {
+  try { await db.doc(`games/${code}/players/${uid}`).delete(); } catch (e) {}
+  leave();
+};
+function plannedStart(){
+  if (ui.startNow) return Date.now() + 30000;
+  const d = new Date(); d.setHours(ui.hour, 0, 0, 0); return d.getTime();
+}
+const deal = () => guarded(async () => {
+  const ids = Object.keys(players);
+  if (ids.length < MIN_PLAYERS) return;
+  const start = plannedStart(), L = ui.mins * 60000;
+  await db.doc(`games/${code}`).update({
+    status:'started', roles:assignRoles(ids, secureRnd),
+    start, phaseMs:L, phases:PHASES, dealtAt:Date.now()
+  });
+});
+async function act(type, target){
+  if (ui.busy) return;
+  ui.busy = true; ui.err = ''; ui.armed = null;
+  try { await db.collection(`games/${code}/actions`).add({ at:Date.now(), actor:uid, type, target:target ?? null }); }
+  catch (e) { ui.err = explain(e); }
+  ui.busy = false; render();
+}
+
+// ---------------------------------------------------------------- rendering
+function render(){
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; doRender(); });
+}
+function doRender(){
+  const ae = document.activeElement;
+  const fid = ae && ae.id; let s0 = null, s1 = null;
+  try { s0 = ae.selectionStart; s1 = ae.selectionEnd; } catch (e) {}
+  let view, themePhase = null;
+  if (!booted) view = viewMsg('Connecting…');
+  else if (!db) view = viewMsg('This game stores its data in Claude. Open the link from Claude, sign in, then reload.');
+  else if (!uid) view = viewMsg('You need to be signed in to Claude to play.');
+  else if (!code) view = viewLanding();
+  else if (game === undefined) view = viewMsg('Loading game…');
+  else if (game.status === 'started') {
+    view = viewGame();
+    if (D && !D.over && D.phase >= 0) themePhase = isNight(D.phase) ? 'night' : 'day';
+  } else view = viewLobby();
+  const root = document.documentElement;
+  if (themePhase) root.setAttribute('data-phase', themePhase); else root.removeAttribute('data-phase');
+  $app.replaceChildren(view);
+  if (fid) {
+    const el = document.getElementById(fid);
+    if (el) { el.focus(); try { if (s0 != null) el.setSelectionRange(s0, s1); } catch (e) {} }
+  }
+}
+const errEl = () => ui.err ? h('p', { class:'err', role:'alert' }, ui.err) : null;
+const viewMsg = t => h('main', { class:'wrap' }, h('h1', { class:'brand' }, 'Werewolf'), h('p', { class:'lede' }, t));
+
+function rulesEl(){
+  return h('details', {},
+    h('summary', {}, 'How the game works'),
+    h('ul', {},
+      h('li', {}, 'The game runs for nine phases, one hour each by default: Day, Night, Day, Night… from 8h to 17h.'),
+      h('li', {}, 'Day: talk it out with your friends, then everyone alive votes. The most voted player is eliminated when the day ends. A tie means nobody goes.'),
+      h('li', {}, 'Night: the werewolves vote on a victim. The most voted player dies when the night ends. The Clairvoyant looks at one player each night.'),
+      h('li', {}, 'Protector: once per game, shield one player. Werewolves cannot kill them until the game ends.'),
+      h('li', {}, 'Sheriff: one bullet, usable any time. Hit a werewolf and it dies. Hit anyone else and you both die.'),
+      h('li', {}, 'Whenever a player dies, everyone sees their role.'),
+      h('li', {}, 'The village wins when every werewolf is dead. The werewolves win when they equal the village in number, or if any of them is still alive when the last phase ends.'),
+      h('li', {}, 'Roles: about 20% werewolves, 10% each of Clairvoyant, Protector and Sheriff, and the rest Villagers.')
+    )
+  );
+}
+
+function viewLanding(){
+  const off = ui.busy || canWrite === false;
+  const enter1 = fn => e => { if (e.key === 'Enter') fn(); };
+  return h('main', { class:'wrap' },
+    h('h1', { class:'brand' }, 'Werewolf'),
+    h('p', { class:'lede' }, 'One game, one whole day. The app deals secret roles and runs day and night by the clock.'),
+    canWrite === false ? h('p', { class:'notice' }, 'You can view this page but not join games. Ask its owner to give you Contributor access.') : null,
+    errEl(),
+    h('div', { class:'field' },
+      h('label', { for:'nameInput' }, 'Your name'),
+      h('input', { id:'nameInput', value:ui.name, maxlength:'20', autocomplete:'off', placeholder:'Alex',
+        oninput:e => { ui.name = e.target.value; }, onkeydown:enter1(createGame) })),
+    h('button', { class:'btn primary', disabled:off, onclick:createGame }, 'Create a game'),
+    h('div', { class:'or' }, 'or join your friends'),
+    h('div', { class:'field' },
+      h('label', { for:'codeInput' }, 'Game code'),
+      h('input', { id:'codeInput', class:'code-input', value:ui.join, maxlength:'4', autocapitalize:'characters', spellcheck:'false', autocomplete:'off',
+        oninput:e => { ui.join = e.target.value.toUpperCase(); e.target.value = ui.join; }, onkeydown:enter1(joinGame) })),
+    h('button', { class:'btn', disabled:off, onclick:joinGame }, 'Join game'),
+    rulesEl()
+  );
+}
+
+function viewLobby(){
+  const ids = Object.keys(players).sort((a, b) => (players[a].at || 0) - (players[b].at || 0));
+  const isHost = game.hostId === uid;
+  const n = ids.length;
+  const c = roleCounts(n);
+  const mix = [['wolf', 'werewolf', 'werewolves'], ['seer', 'clairvoyant', 'clairvoyants'], ['protector', 'protector', 'protectors'], ['sheriff', 'sheriff', 'sheriffs'], ['villager', 'villager', 'villagers']]
+    .filter(([k]) => c[k] > 0).map(([k, one, many]) => `${c[k]} ${c[k] === 1 ? one : many}`).join(', ');
+
+  const st = plannedStart(), L = ui.mins * 60000, en = st + PHASES * L;
+  const over = en <= Date.now();
+  const late = st < Date.now() - 5000 && !over;
+  const canDeal = isHost && n >= MIN_PLAYERS && !over && !ui.busy;
+
+  const hours = []; for (let i = 0; i < 24; i++) hours.push(h('option', { value:String(i), selected:i === ui.hour }, i + 'h'));
+  const lens = [[60, '1 hour (real game)'], [30, '30 minutes'], [15, '15 minutes'], [5, '5 minutes'], [1, '1 minute (quick test)']]
+    .map(([v, t]) => h('option', { value:String(v), selected:v === ui.mins }, t));
+
+  return h('main', { class:'wrap' },
+    h('header', { class:'top' }, h('span', { class:'brand-sm' }, 'Werewolf'), h('button', { class:'btn small', onclick:leaveLobby }, 'Leave')),
+    h('p', { class:'muted', style:'margin:0' }, 'Game code. Friends enter it to join.'),
+    h('div', { class:'big-code', 'aria-label':'Game code ' + code.split('').join(' ') }, code),
+    errEl(),
+    h('section', { class:'block' },
+      h('h3', {}, `Players (${n})`),
+      h('ul', { class:'plist' }, ids.map(id => h('li', { class:'prow' },
+        h('span', {}, players[id].name, id === uid ? ' (you)' : '', id === game.hostId ? h('span', { class:'tag host' }, ' · host') : null),
+        isHost && id !== uid ? h('button', { class:'btn small', onclick:() => removePlayer(id), 'aria-label':'Remove ' + players[id].name }, 'Remove') : null
+      )))
+    ),
+    isHost ? h('section', { class:'block' },
+      h('h3', {}, 'Start the game'),
+      h('div', { class:'field' },
+        h('label', { for:'hourSel' }, 'First phase starts at'),
+        h('select', { id:'hourSel', disabled:ui.startNow, onchange:e => { ui.hour = +e.target.value; render(); } }, hours)),
+      h('div', { class:'field' },
+        h('label', { for:'minSel' }, 'Length of each phase'),
+        h('select', { id:'minSel', onchange:e => { ui.mins = +e.target.value; render(); } }, lens)),
+      h('div', { class:'field' },
+        h('label', {}, h('input', { type:'checkbox', id:'nowChk', checked:ui.startNow, style:'width:auto;min-height:0;margin-right:.5rem',
+          onchange:e => { ui.startNow = e.target.checked; render(); } }), 'Start in 30 seconds (test run)')),
+      h('p', { class:'muted' }, `Runs ${fmt(st)} to ${fmt(en)}. ${n >= MIN_PLAYERS ? 'With ' + n + ' players: ' + mix + '.' : `Needs at least ${MIN_PLAYERS} players.`}`),
+      over ? h('p', { class:'err' }, 'That schedule has already ended. Pick a later hour or start in 30 seconds.') : null,
+      late ? h('p', { class:'notice' }, 'That start time has passed, so the game will already be in progress.') : null,
+      h('div', { class:'row' },
+        h('button', { class:'btn primary', disabled:!canDeal, onclick:deal }, 'Deal the roles'),
+        h('button', { class:'btn', disabled:ui.busy, onclick:addBot }, 'Add a test player'))
+    ) : h('section', { class:'block' },
+      h('h3', {}, 'Waiting for the host'),
+      h('p', { class:'muted' }, `${nameOf(game.hostId)} will deal the roles when everyone is in.`)),
+    rulesEl()
+  );
+}
+
+// ---- in-game
+function tallyVotes(map, pick){
+  const c = {};
+  for (const [a, v] of Object.entries(map || {})) {
+    const t = pick ? v.target : v;
+    if (D.alive.has(a) && D.alive.has(t)) c[t] = (c[t] || 0) + 1;
+  }
+  return c;
+}
+function pickList(ids, o){
+  return h('ul', { class:'picks' }, ids.map(id => h('li', {},
+    h('button', { class:'pick', 'aria-pressed':String(o.selected === id), onclick:() => o.onPick(id) },
+      h('span', {}, nameOf(id)),
+      o.counts && o.counts[id] ? h('span', { class:'badge', 'aria-label':o.counts[id] + ' votes' }, o.counts[id]) : null))));
+}
+function confirmBar(text, yes, onYes){
+  return h('div', { class:'confirm' }, h('p', {}, text),
+    h('div', { class:'row' },
+      h('button', { class:'btn primary', onclick:onYes }, yes),
+      h('button', { class:'btn', onclick:() => { ui.armed = null; render(); } }, 'Cancel')));
+}
+function armedPick(kind, ids, confirmText, yes, run){
+  const a = ui.armed && ui.armed.kind === kind ? ui.armed.target : null;
+  return [
+    pickList(ids, { selected:a, onPick:id => { ui.armed = { kind, target:id }; render(); } }),
+    a ? confirmBar(confirmText(nameOf(a)), yes, () => run(a)) : null
+  ];
+}
+
+function setReveal(open){
+  const c = document.querySelector('.card'); if (!c) return;
+  c.classList.toggle('flipped', open);
+  c.setAttribute('aria-label', open ? 'Hide my role' : 'Show my role');
+  const d = document.querySelector('.roledesc'); if (d) d.classList.toggle('shown', open);
+}
+function roleSection(mine){
+  const r = ROLE[mine];
+  const open = Date.now() < ui.revealUntil;
+  const pack = mine === 'wolf' ? Object.keys(game.roles).filter(id => game.roles[id] === 'wolf' && id !== uid).map(nameOf) : null;
+  return h('section', { class:'block' },
+    h('h3', {}, 'Your role'),
+    h('div', { class:'rolebox' },
+      h('div', { class:'scene' },
+        h('button', { class:'card' + (open ? ' flipped' : ''), 'aria-label':open ? 'Hide my role' : 'Show my role',
+          onclick:() => { const now = Date.now(); ui.revealUntil = now < ui.revealUntil ? 0 : now + 8000; setReveal(now < ui.revealUntil); } },
+          h('span', { class:'face back' }, h('span', { class:'q' }, '?'), h('span', { class:'hint' }, 'Tap to look')),
+          h('span', { class:'face front' }, h('span', { class:'ico' }, r.icon), h('span', { class:'rname' }, r.name)))),
+      h('div', { class:'roletext' },
+        h('p', { class:'muted' }, 'Keep your screen away from others. The card hides itself again after a few seconds.'),
+        h('div', { class:'roledesc' + (open ? ' shown' : '') },
+          h('p', {}, r.blurb),
+          pack ? h('p', {}, pack.length ? 'Your pack: ' + pack.join(', ') + '.' : 'You are the only werewolf.') : null))));
+}
+
+function abilities(mine, p){
+  const out = [];
+  const night = isNight(p);
+  const me = uid;
+  const others = [...D.alive].filter(id => id !== me);
+
+  if (!night) {
+    const mv = D.votes[p] && D.votes[p][me];
+    out.push(h('div', { class:'panel' },
+      h('h4', {}, 'Vote to eliminate'),
+      h('p', { class:'muted' }, 'You can change your vote until the day ends. Tap your pick again to withdraw it.'),
+      pickList(others, { selected:mv, counts:tallyVotes(D.votes[p], false), onPick:id => act('vote', id === mv ? null : id) })));
+  }
+  if (night && mine === 'wolf') {
+    const wv = D.wolfVotes[p] && D.wolfVotes[p][me] && D.wolfVotes[p][me].target;
+    const prey = others.filter(id => game.roles[id] !== 'wolf');
+    out.push(h('div', { class:'panel' },
+      h('h4', {}, 'Choose tonight\'s victim'),
+      h('p', { class:'muted' }, 'The most voted player dies at the end of the night. Numbers show your pack\'s votes.'),
+      pickList(prey, { selected:wv, counts:tallyVotes(D.wolfVotes[p], true), onPick:id => act('wolf', id === wv ? null : id) })));
+  }
+  if (night && mine === 'seer') {
+    const done = D.looks[p] && D.looks[p].actor === me;
+    out.push(h('div', { class:'panel' },
+      h('h4', {}, 'Look at a player'),
+      done
+        ? h('p', {}, `You looked at ${nameOf(D.looks[p].target)} tonight: ${roleOf(D.looks[p].target).icon} ${roleOf(D.looks[p].target).name}.`)
+        : [h('p', { class:'muted' }, 'One look per night.'),
+           ...armedPick('look', others, n => `Look at ${n}?`, 'Look', t => act('look', t))]));
+  }
+  if (mine === 'sheriff') {
+    out.push(h('div', { class:'panel' },
+      h('h4', {}, 'Your bullet'),
+      D.shot
+        ? h('p', {}, 'You have used your bullet.')
+        : [h('p', { class:'muted' }, 'Any time, day or night. A werewolf dies. Anyone else dies and you die with them.'),
+           ...armedPick('shoot', others, n => `Shoot ${n}? This cannot be undone.`, 'Shoot', t => act('shoot', t))]));
+  }
+  if (mine === 'protector') {
+    const mine2 = [...D.alive];
+    out.push(h('div', { class:'panel' },
+      h('h4', {}, 'Your shield'),
+      D.protect
+        ? h('p', {}, `You are shielding ${nameOf(D.protect.target)} until the game ends.`)
+        : [h('p', { class:'muted' }, 'Once per game, any time. You can pick yourself.'),
+           ...armedPick('protect', mine2, n => `Shield ${n} until the game ends?`, 'Shield', t => act('protect', t))]));
+  }
+  if (night && (mine === 'villager' || mine === 'protector' || mine === 'sheriff')) {
+    out.push(h('p', { class:'muted' }, 'It is night. Stay quiet until morning.'));
+  }
+  return out;
+}
+
+function privateNotes(mine){
+  const notes = [];
+  if (mine === 'seer') {
+    for (const [p, l] of Object.entries(D.looks)) if (l.actor === uid)
+      notes.push(`${phaseLabel(+p)}: ${nameOf(l.target)} is a ${roleOf(l.target).name}.`);
+  }
+  if (mine === 'protector') {
+    for (const s of D.saved) if (D.protect && D.protect.actor === uid)
+      notes.push(`${phaseLabel(s.phase)}: the werewolves went for ${nameOf(s.target)}. Your shield saved them.`);
+  }
+  return notes;
+}
+
+function logLine(e){
+  const nm = nameOf, rn = id => roleOf(id).name;
+  switch (e.type) {
+    case 'night_kill': return `${nm(e.target)} was killed in the night. They were a ${rn(e.target)}.`;
+    case 'night_quiet': return 'Nobody died in the night.';
+    case 'vote_out': return `The village voted out ${nm(e.target)} with ${e.votes} vote${e.votes > 1 ? 's' : ''}. They were a ${rn(e.target)}.`;
+    case 'vote_tie': return 'The vote was tied. Nobody was eliminated.';
+    case 'vote_none': return 'Nobody voted. Nobody was eliminated.';
+    case 'sheriff_hit': return `${nm(e.actor)} the Sheriff shot ${nm(e.target)}, a Werewolf. The wolf is dead.`;
+    case 'sheriff_miss': return `${nm(e.actor)} the Sheriff shot ${nm(e.target)}, a ${rn(e.target)}. Both are dead.`;
+    case 'end': return e.winner === 'village' ? 'Game over. The village wins.' : 'Game over. The werewolves win.';
+  }
+  return '';
+}
+
+function overBlock(mine){
+  const w = D.winner;
+  const why = { 'wolves-dead':'Every werewolf is dead.', parity:'The werewolves now equal the village in number.', time:'Time ran out with a werewolf still among you.' }[D.why] || '';
+  let result = '';
+  if (mine) result = (ROLE[mine].team === (w === 'village' ? 'village' : 'wolves')) ? 'You won.' : 'You lost.';
+  return h('div', { class:'banner' },
+    h('h2', {}, w === 'village' ? 'The village wins' : 'The werewolves win'),
+    h('p', {}, [why, result].filter(Boolean).join(' ')));
+}
+
+function updateClock(now){
+  const cd = document.getElementById('cd'); if (!cd || !game) return;
+  const L = game.phaseMs, s = game.start;
+  if (now < s) cd.textContent = `Starts in ${dur(s - now)}`;
+  else {
+    const p = Math.floor((now - s) / L);
+    cd.textContent = `Phase ends in ${dur(s + (p + 1) * L - now)}`;
+    const f = document.getElementById('fill');
+    if (f) f.style.width = Math.min(100, ((now - s - p * L) / L) * 100) + '%';
+  }
+}
+
+function viewGame(){
+  const now = Date.now();
+  D = derive(game, actions, now);
+  lastRaw = rawPhase(now);
+  const roles = game.roles, mine = roles[uid], inGame = !!mine;
+  const p = D.phase, N = game.phases, L = game.phaseMs, s = game.start;
+  const main = h('main', { class:'wrap' });
+
+  main.append(h('header', { class:'top' }, h('span', { class:'brand-sm' }, 'Werewolf'), h('span', { class:'chip' }, 'Game ' + code)));
+  main.append(errEl());
+
+  if (D.over) main.append(overBlock(mine));
+  else if (p < 0) main.append(
+    h('h2', { class:'phase' }, 'Roles are dealt'),
+    h('p', { class:'sub' }, `The game starts at ${fmt(s)}.`),
+    h('p', { class:'count', id:'cd' }, ''));
+  else main.append(
+    h('h2', { class:'phase' }, phaseLabel(p)),
+    h('p', { class:'sub' }, `${fmt(s + p * L)} – ${fmt(s + (p + 1) * L)}`),
+    h('p', { class:'count', id:'cd' }, ''),
+    h('p', { class:'desc' }, isNight(p)
+      ? 'The village sleeps. Werewolves pick a victim, the Clairvoyant looks.'
+      : 'Talk it out with your friends, then vote before this phase ends.'));
+
+  // the day/night strip
+  const clockNow = D.over ? -1 : p;
+  const strip = h('div', { class:'clock', style:`grid-template-columns:repeat(${N},1fr)`, role:'img',
+    'aria-label':`${N} phases from ${fmt(s)} to ${fmt(s + N * L)}, alternating day and night` });
+  const ticks = h('div', { class:'ticks', style:`grid-template-columns:repeat(${N},1fr)` });
+  for (let i = 0; i < N; i++) {
+    strip.append(h('div', { class:`seg ${isNight(i) ? 'night' : 'day'}${(D.over || i < p) ? ' past' : ''}${i === clockNow ? ' now' : ''}` },
+      isNight(i) ? '☾' : '☀',
+      i === clockNow ? h('span', { class:'fill', id:'fill', style:'width:0%' }) : null));
+    ticks.append(h('span', {}, fmt(s + i * L)));
+  }
+  main.append(strip, ticks);
+
+  if (!inGame) main.append(h('p', { class:'notice', style:'margin-top:24px' }, 'You joined after the roles were dealt, so you are watching this game.'));
+  else main.append(roleSection(mine));
+
+  if (inGame && !D.over && p >= 0) {
+    if (D.alive.has(uid)) {
+      const ab = abilities(mine, p);
+      if (ab.length) main.append(h('section', { class:'block' }, h('h3', {}, 'What you can do'), ab));
+    } else {
+      const d = D.dead[uid];
+      main.append(h('section', { class:'block' }, h('h3', {}, 'You are out'),
+        h('p', { class:'muted' }, (d && d.cause === 'guilt' ? 'You shot an innocent and paid for it. ' : '') + 'You can keep watching, but you cannot talk about the game or act.')));
+    }
+  }
+
+  const notes = inGame ? privateNotes(mine) : [];
+  if (notes.length) main.append(h('section', { class:'block' }, h('h3', {}, 'Only you know'), h('ul', { class:'log' }, notes.map(t => h('li', {}, t)))));
+
+  // players
+  const ids = Object.keys(roles).sort((a, b) => (players[a] && players[a].at || 0) - (players[b] && players[b].at || 0));
+  main.append(h('section', { class:'block' },
+    h('h3', {}, `Players (${D.alive.size} alive)`),
+    h('ul', { class:'plist' }, ids.map(id => {
+      const dead = !D.alive.has(id);
+      let tag = null;
+      if (dead || D.over) tag = h('span', { class:'tag' }, `${ROLE[roles[id]].icon} ${ROLE[roles[id]].name}`);
+      else if (mine === 'wolf' && roles[id] === 'wolf') tag = h('span', { class:'tag' }, '🐺 pack');
+      return h('li', { class:'prow' + (dead ? ' dead' : '') }, h('span', { class:'pname' }, nameOf(id), id === uid ? ' (you)' : ''), tag);
+    }))));
+
+  // public log
+  main.append(h('section', { class:'block' },
+    h('h3', {}, 'What happened'),
+    D.pub.length
+      ? h('ul', { class:'log' }, [...D.pub].reverse().map(e => h('li', {}, h('b', {}, phaseLabel(e.phase)), logLine(e))))
+      : h('p', { class:'muted' }, 'Nothing yet. Results appear here when each phase ends.')));
+
+  main.append(rulesEl());
+  main.append(h('footer', {}, h('button', { class:'btn small', onclick:leave }, 'Close this game on my phone')));
+  requestAnimationFrame(() => updateClock(Date.now()));
+  return main;
+}
+
+// ---------------------------------------------------------------- clock tick
+setInterval(() => {
+  const now = Date.now();
+  if (ui.revealUntil && now > ui.revealUntil) { ui.revealUntil = 0; setReveal(false); }
+  if (!code || !game || game.status !== 'started') return;
+  if (rawPhase(now) !== lastRaw) { render(); return; }
+  updateClock(now);
+}, 1000);
+
+boot();
+</script>
+</body>
+</html>
